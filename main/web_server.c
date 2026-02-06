@@ -70,7 +70,7 @@ esp_err_t api_status_handler(httpd_req_t *req)
     int offset = 0;
     offset += snprintf(json + offset, sizeof(json) - offset, "{\"pan_id\":%u,\"channel\":%u,\"short_addr\":%u,\"devices\":[", pan_id, channel, short_addr);
     for (int i = 0; i < device_count; i++) {
-        offset += snprintf(json + offset, sizeof(json) - offset, "{\"name\":\"%s\"}%s", devices[i].name, (i < device_count - 1) ? "," : "");
+        offset += snprintf(json + offset, sizeof(json) - offset, "{\"name\":\"%s\",\"short_addr\":%u}%s", devices[i].name, devices[i].short_addr, (i < device_count - 1) ? "," : "");
     }
     offset += snprintf(json + offset, sizeof(json) - offset, "]}");
     httpd_resp_set_type(req, "application/json");
@@ -83,6 +83,23 @@ esp_err_t api_permit_join_handler(httpd_req_t *req)
 {
     esp_zb_bdb_open_network(60);
     const char* resp = "{\"message\":\"Network opened for 60 seconds\"}";
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, resp, strlen(resp));
+    return ESP_OK;
+}
+
+// API: Control device
+esp_err_t api_control_handler(httpd_req_t *req)
+{
+    char buf[100];
+    int len = httpd_req_recv(req, buf, sizeof(buf));
+    buf[len] = '\0';
+    // Парсинг: addr,endpoint,cmd (0=off,1=on)
+    uint16_t addr;
+    uint8_t endpoint, cmd;
+    sscanf(buf, "%hx,%hhu,%hhu", &addr, &endpoint, &cmd);
+    send_on_off_command(addr, endpoint, cmd);
+    const char* resp = "{\"message\":\"Command sent\"}";
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, resp, strlen(resp));
     return ESP_OK;
@@ -141,6 +158,14 @@ void start_web_server(void)
         .user_ctx  = NULL
     };
     httpd_register_uri_handler(server, &uri_api_permit);
+
+    httpd_uri_t uri_api_control = {
+        .uri       = "/api/control",
+        .method    = HTTP_POST,
+        .handler   = api_control_handler,
+        .user_ctx  = NULL
+    };
+    httpd_register_uri_handler(server, &uri_api_control);
 
     httpd_uri_t uri_favicon = {
         .uri       = "/favicon.ico",

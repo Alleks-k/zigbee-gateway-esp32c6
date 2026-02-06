@@ -24,8 +24,12 @@ esp_err_t css_handler(httpd_req_t *req);
 esp_err_t js_handler(httpd_req_t *req);
 esp_err_t api_status_handler(httpd_req_t *req);
 esp_err_t api_permit_join_handler(httpd_req_t *req);
+esp_err_t api_control_handler(httpd_req_t *req);
 esp_err_t favicon_handler(httpd_req_t *req);
 void start_web_server(void);
 void add_device(uint16_t addr);
+
+// Функція для керування пристроями
+void send_on_off_command(uint16_t short_addr, uint8_t endpoint, uint8_t on_off);
 
 #endif

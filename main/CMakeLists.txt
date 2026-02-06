@@ -1,6 +1,9 @@
+# idf_component_register(SRCS "esp_zigbee_gateway.c"
+#                     INCLUDE_DIRS "."
+#                     REQUIRES nvs_flash)
 idf_component_register(SRCS "esp_zigbee_gateway.c" "web_server.c"
                        INCLUDE_DIRS "."
-                       REQUIRES   nvs_flash   esp_http_server spiffs
+                       REQUIRES  esp-zigbee-lib nvs_flash esp_http_server spiffs
                        PRIV_REQUIRES esp_wifi spiffs protocol_examples_common)
 
 # idf_build_get_property(python PYTHON)

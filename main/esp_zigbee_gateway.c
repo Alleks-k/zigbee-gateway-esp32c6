@@ -30,6 +30,7 @@
 #include "esp_zigbee_gateway.h"
 #include "esp_http_server.h"
 #include "web_server.h"
+#include <zcl/esp_zigbee_zcl_core.h>
 
 #include "esp_vfs_dev.h"
 #include "esp_vfs_usb_serial_jtag.h"
@@ -122,6 +123,20 @@ static void bdb_start_top_level_commissioning_cb(uint8_t mode_mask)
 uint16_t pan_id = 0;
 uint8_t channel = 0;
 uint16_t short_addr = 0;
+
+// Функція для відправки On/Off команд
+void send_on_off_command(uint16_t short_addr, uint8_t endpoint, uint8_t on_off) {
+esp_zb_zcl_on_off_cmd_t cmd_req = {
+    .zcl_basic_cmd = {
+        .dst_addr_u.addr_short = short_addr,
+        .dst_endpoint = endpoint,
+        .src_endpoint = ESP_ZB_GATEWAY_ENDPOINT,
+    },
+    .address_mode = ESP_ZB_APS_ADDR_MODE_16_ENDP_PRESENT,
+    .on_off_cmd_id = on_off ? ESP_ZB_ZCL_CMD_ON_OFF_ON_ID : ESP_ZB_ZCL_CMD_ON_OFF_OFF_ID,
+};
+    esp_zb_zcl_on_off_cmd_req(&cmd_req);
+}
 
 void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct)
 {
