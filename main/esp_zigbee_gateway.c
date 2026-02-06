@@ -30,6 +30,7 @@
 #include "esp_zigbee_gateway.h"
 #include "esp_http_server.h"
 #include "web_server.h"
+#include "mdns.h"
 #include <zcl/esp_zigbee_zcl_core.h>
 
 #include "esp_vfs_dev.h"
@@ -48,6 +49,20 @@ typedef struct app_production_config_s {
     uint16_t manuf_code;
     char manuf_name[16];
 } app_production_config_t;
+
+/* mDNS сервіс для доступу через http://zigbee-gw.local */
+void start_mdns_service(void)
+{
+    esp_err_t err = mdns_init();
+    if (err) {
+        ESP_LOGE(TAG, "mDNS Init failed: %d", err);
+        return;
+    }
+    mdns_hostname_set("zigbee-gw");
+    mdns_instance_name_set("ESP32C6 Zigbee Gateway");
+    mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0);
+    ESP_LOGI(TAG, "mDNS started: http://zigbee-gw.local");
+}
 
 /* Note: Please select the correct console output port based on the development board in menuconfig */
 #if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
@@ -324,7 +339,8 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_rcp_update_init(&rcp_update_config));
 #endif
 
-    // Запуск веб-сервера (винесено в окремий модуль)
+    // Запуск мережевих сервісів
+    start_mdns_service();
     start_web_server();
 
     xTaskCreate(esp_zb_task, "Zigbee_main", 8192, NULL, 5, NULL);
