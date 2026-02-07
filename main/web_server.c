@@ -5,7 +5,7 @@
 #include "nvs_flash.h"
 #include <string.h>
 #include <stdio.h>
-#include "cJSON.h" // Додайте на початку файлу
+#include "cJSON.h"
 
 static const char *TAG = "WEB_SERVER";
 
@@ -52,7 +52,6 @@ void load_devices_from_nvs() {
 }
 
 void add_device(uint16_t addr) {
-    // Перевірка, чи такий пристрій вже є у списку
     for (int i = 0; i < device_count; i++) {
         if (devices[i].short_addr == addr) {
             ESP_LOGI(TAG, "Device 0x%04x is already in the list", addr);
@@ -66,13 +65,13 @@ void add_device(uint16_t addr) {
         device_count++;
         
         ESP_LOGI(TAG, "New device added: 0x%04x. Total: %d", addr, device_count);
-        save_devices_to_nvs(); // Автоматично зберігаємо після додавання
+        save_devices_to_nvs();
     } else {
         ESP_LOGW(TAG, "Maximum device limit reached (%d)", MAX_DEVICES);
     }
 }
 
-// Frontend: HTML з посиланнями на CSS/JS
+/* Обробник для головної сторінки */
 esp_err_t web_handler(httpd_req_t *req)
 {
     FILE* f = fopen("/www/index.html", "r");
@@ -84,13 +83,12 @@ esp_err_t web_handler(httpd_req_t *req)
     char buf[2048];
     size_t len = fread(buf, 1, sizeof(buf), f);
     fclose(f);
-  // У web_handler
-httpd_resp_set_type(req, "text/html; charset=utf-8"); // Додали charset=utf-8
+    httpd_resp_set_type(req, "text/html; charset=utf-8");
     httpd_resp_send(req, buf, len);
     return ESP_OK;
 }
 
-// Обробник для CSS
+/* Обробник для CSS */
 esp_err_t css_handler(httpd_req_t *req)
 {
     FILE* f = fopen("/www/style.css", "r");
@@ -106,21 +104,7 @@ esp_err_t css_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-// Обробник для JS
-// esp_err_t js_handler(httpd_req_t *req)
-// {
-//     FILE* f = fopen("/www/script.js", "r");
-//     if (!f) {
-//         httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "JS file not found");
-//         return ESP_FAIL;
-//     }
-//     char buf[2048];
-//     size_t len = fread(buf, 1, sizeof(buf), f);
-//     fclose(f);
-//     httpd_resp_set_type(req, "application/javascript");
-//     httpd_resp_send(req, buf, len);
-//     return ESP_OK;
-// }
+/* Обробник для JS */
 esp_err_t js_handler(httpd_req_t *req)
 {
     FILE* f = fopen("/www/script.js", "r");
@@ -128,7 +112,6 @@ esp_err_t js_handler(httpd_req_t *req)
         httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "JS file not found");
         return ESP_FAIL;
     }
-    // Збільшуємо буфер до 4096, щоб файл не обрізався
     char *buf = malloc(4096);
     if (!buf) {
         fclose(f);
@@ -141,32 +124,16 @@ esp_err_t js_handler(httpd_req_t *req)
     free(buf);
     return ESP_OK;
 }
-// API: Статус у JSON
-// esp_err_t api_status_handler(httpd_req_t *req)
-// {
-//     char json[1024];
-//     int offset = 0;
-//     offset += snprintf(json + offset, sizeof(json) - offset, 
-//         "{\"pan_id\":%u,\"channel\":%u,\"short_addr\":%u,\"devices\":[", 
-//         pan_id, channel, short_addr);
-    
-//     for (int i = 0; i < device_count; i++) {
-//         offset += snprintf(json + offset, sizeof(json) - offset, 
-//             "{\"name\":\"%s\",\"short_addr\":%u}%s", 
-//             devices[i].name, devices[i].short_addr, (i < device_count - 1) ? "," : "");
-//     }
-//     offset += snprintf(json + offset, sizeof(json) - offset, "]}");
-    
-//     httpd_resp_set_type(req, "application/json");
-//     httpd_resp_send(req, json, strlen(json));
-//     return ESP_OK;
-// }
+
+/* API: Статус у JSON (ВИПРАВЛЕНО: прямий запит до SDK) */
 esp_err_t api_status_handler(httpd_req_t *req)
 {
     cJSON *root = cJSON_CreateObject();
-    cJSON_AddNumberToObject(root, "pan_id", pan_id);
-    cJSON_AddNumberToObject(root, "channel", channel);
-    cJSON_AddNumberToObject(root, "short_addr", short_addr);
+    
+    // Запитуємо актуальні дані безпосередньо у Zigbee SDK
+    cJSON_AddNumberToObject(root, "pan_id", esp_zb_get_pan_id());
+    cJSON_AddNumberToObject(root, "channel", esp_zb_get_current_channel());
+    cJSON_AddNumberToObject(root, "short_addr", esp_zb_get_short_address());
 
     cJSON *dev_list = cJSON_CreateArray();
     for (int i = 0; i < device_count; i++) {
@@ -185,7 +152,8 @@ esp_err_t api_status_handler(httpd_req_t *req)
     cJSON_Delete(root);
     return ESP_OK;
 }
-// API: Permit Join
+
+/* API: Відкрити мережу (Permit Join) */
 esp_err_t api_permit_join_handler(httpd_req_t *req)
 {
     esp_zb_bdb_open_network(60);
@@ -196,7 +164,7 @@ esp_err_t api_permit_join_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-// API: Control device
+/* API: Керування пристроєм */
 esp_err_t api_control_handler(httpd_req_t *req)
 {
     char buf[100];
@@ -218,6 +186,7 @@ esp_err_t api_control_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+/* Обробник для favicon (щоб уникнути помилок 404 в браузері) */
 esp_err_t favicon_handler(httpd_req_t *req)
 {
     httpd_resp_set_status(req, "204 No Content");
@@ -227,7 +196,6 @@ esp_err_t favicon_handler(httpd_req_t *req)
 
 void start_web_server(void)
 {
-    /* Завантажуємо пристрої з пам'яті перед запуском сервера */
     load_devices_from_nvs();
 
     httpd_handle_t server = NULL;
